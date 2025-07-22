@@ -8,16 +8,30 @@ from typing import Optional
 
 # For production use, this should be loaded securely, e.g., from an environment
 # variable or a secrets management system. It should not be hardcoded.
-SECRET_KEY = "your-super-secret-key"
+import os
+import json
+
+SECRET_KEY = os.environ.get("VERICODE_SECRET_KEY")
+if not SECRET_KEY:
+    try:
+        with open("config.json", "r") as f:
+            config = json.load(f)
+            SECRET_KEY = config.get("VERICODE_SECRET_KEY")
+    except FileNotFoundError:
+        pass # Handled by the next check
+
+if not SECRET_KEY:
+    raise ValueError("VERICODE_SECRET_KEY not set in environment or config.json.")
 
 def _generate_code_for_time_bucket(
     user_id: str,
     time_bucket: int,
     length: int,
     charset: str,
+    counter: Optional[int] = None,
 ) -> str:
     """Helper function to generate a code for a specific time bucket."""
-    message = f"{user_id}:{time_bucket}:{SECRET_KEY}"
+    message = f"{user_id}:{time_bucket}:{counter}:{SECRET_KEY}"
     h = hashlib.sha256(message.encode("utf-8")).digest()
     num = int.from_bytes(h, "big")
 
@@ -36,6 +50,7 @@ def generate_code(
     use_digits: bool = True,
     use_uppercase: bool = False,
     use_lowercase: bool = False,
+    counter: Optional[int] = None,
 ) -> str:
     """Generates a deterministic, time-bound verification code.
 
@@ -71,7 +86,7 @@ def generate_code(
 
     current_time_bucket = int(time.time() / period)
     return _generate_code_for_time_bucket(
-        user_id, current_time_bucket, length, charset
+        user_id, current_time_bucket, length, charset, counter
     )
 
 def validate_code(
@@ -81,6 +96,7 @@ def validate_code(
     use_digits: bool = True,
     use_uppercase: bool = False,
     use_lowercase: bool = False,
+    counter: Optional[int] = None,
 ) -> bool:
     """Validates a time-bound verification code.
 
@@ -118,14 +134,14 @@ def validate_code(
 
     # Check current time bucket
     expected_code_current = _generate_code_for_time_bucket(
-        user_id, current_time_bucket, len(code), charset
+        user_id, current_time_bucket, len(code), charset, counter
     )
     if hmac.compare_digest(code, expected_code_current):
         return True
 
     # Check previous time bucket
     expected_code_previous = _generate_code_for_time_bucket(
-        user_id, previous_time_bucket, len(code), charset
+        user_id, previous_time_bucket, len(code), charset, counter
     )
     if hmac.compare_digest(code, expected_code_previous):
         return True
@@ -148,6 +164,8 @@ if __name__ == "__main__":
             use_digits = input("Use digits (0-9)? (y/n, default: y): ").lower() != 'n'
             use_uppercase = input("Use uppercase (A-Z)? (y/n, default: n): ").lower() == 'y'
             use_lowercase = input("Use lowercase (a-z)? (y/n, default: n): ").lower() == 'y'
+            counter_str = input("Enter optional counter (integer, leave blank for none): ")
+            counter = int(counter_str) if counter_str.isdigit() else None
 
             try:
                 code = generate_code(
@@ -155,7 +173,8 @@ if __name__ == "__main__":
                     length=length,
                     use_digits=use_digits,
                     use_uppercase=use_uppercase,
-                    use_lowercase=use_lowercase
+                    use_lowercase=use_lowercase,
+                    counter=counter
                 )
                 print(f"\nGenerated Code: {code}")
             except ValueError as e:
@@ -170,13 +189,16 @@ if __name__ == "__main__":
             use_digits = input("Was it generated with digits? (y/n, default: y): ").lower() != 'n'
             use_uppercase = input("Was it generated with uppercase? (y/n, default: n): ").lower() == 'y'
             use_lowercase = input("Was it generated with lowercase? (y/n, default: n): ").lower() == 'y'
+            counter_str = input("Was a counter used? (integer, leave blank for none): ")
+            counter = int(counter_str) if counter_str.isdigit() else None
 
             is_valid = validate_code(
                 code,
                 user_id,
                 use_digits=use_digits,
                 use_uppercase=use_uppercase,
-                use_lowercase=use_lowercase
+                use_lowercase=use_lowercase,
+                counter=counter
             )
             if is_valid:
                 print("\nResult: Code is VALID.")

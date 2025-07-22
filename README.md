@@ -85,6 +85,7 @@ print(f"Is short period code expired: {is_expired}")
 *   `use_digits` (bool, optional): Include digits (0-9). Defaults to `True`.
 *   `use_uppercase` (bool, optional): Include uppercase letters (A-Z). Defaults to `False`.
 *   `use_lowercase` (bool, optional): Include lowercase letters (a-z). Defaults to `False`.
+*   `counter` (int, optional): An optional counter or nonce to generate different codes for the same user within the same time period. If used during generation, it must also be provided during validation.
 
 #### `validate_code` parameters:
 
@@ -94,10 +95,54 @@ print(f"Is short period code expired: {is_expired}")
 *   `use_digits` (bool, optional): Must match the setting used for code generation. Defaults to `True`.
 *   `use_uppercase` (bool, optional): Must match the setting used for code generation. Defaults to `False`.
 *   `use_lowercase` (bool, optional): Must match the setting used for code generation. Defaults to `False`.
+*   `counter` (int, optional): The counter or nonce used during code generation. Must match the value used when the code was generated.
 
 ## Code Quality
 
 *   **Docstrings**: Clear and concise docstrings for the module and each function.
 *   **Type Hinting**: Python's type hints are used for all function signatures.
-*   **Security**: Uses `hmac.compare_digest` for constant-time comparison to prevent timing attacks.
+*   **Security**: Uses `hmac.compare_digest` for constant-time comparison to prevent timing attacks. The `SECRET_KEY` is now loaded from the `VERICODE_SECRET_KEY` environment variable or, as a fallback, from a `config.json` file, enhancing security by preventing hardcoding of sensitive information.
 *   **Standard Libraries**: Only uses Python standard libraries (`hashlib`, `hmac`, `string`, `time`).
+
+## Security Improvements
+
+The `SECRET_KEY` is crucial for the deterministic generation and validation of codes. To improve security, it is no longer hardcoded in the `verification_code_generator.py` file. Instead, it is loaded in the following order:
+
+1.  **Environment Variable**: The module first attempts to load the `SECRET_KEY` from an environment variable named `VERICODE_SECRET_KEY`.
+2.  **`config.json` (Fallback)**: If the environment variable is not set, the module will look for a `config.json` file in the same directory and attempt to load the `VERICODE_SECRET_KEY` from there.
+
+**How to set the `VERICODE_SECRET_KEY`:**
+
+**Option 1: Environment Variable (Recommended for Production)**
+
+**Linux/macOS:**
+
+```bash
+export VERICODE_SECRET_KEY="your_strong_secret_key_here"
+```
+
+**Windows (Command Prompt):**
+
+```cmd
+set VERICODE_SECRET_KEY="your_strong_secret_key_here"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:VERICODE_SECRET_KEY="your_strong_secret_key_here"
+```
+
+**Option 2: `config.json` (Convenient for Development)**
+
+Create a file named `config.json` in the same directory as `verification_code_generator.py` with the following content:
+
+```json
+{
+    "VERICODE_SECRET_KEY": "your_strong_secret_key_here"
+}
+```
+
+**Important:** Replace `"your_strong_secret_key_here"` with a long, randomly generated string. For production environments, always prefer using environment variables or a dedicated secrets management system over `config.json`.
+
+## Developer Setup and Execution
