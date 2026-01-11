@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Code Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #4a90e2;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+        }
+        .section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            border-color: #4a90e2;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #357abd;
+        }
+        .result {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        .result.success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .generated-code {
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            text-align: center;
+            margin-top: 10px;
+            color: #333;
+            font-family: 'Courier New', Courier, monospace;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Verification Demo</h1>
+
+    <!-- Generate Section -->
+    <div class="section">
+        <label for="gen-email">Enter Email/ID to Generate Code</label>
+        <input type="text" id="gen-email" placeholder="e.g. user@example.com">
+        <button onclick="generateCode()">Generate Code</button>
+        <div id="gen-result" class="result"></div>
+        <div id="code-display" class="generated-code"></div>
+    </div>
+
+    <!-- Validate Section -->
+    <div class="section">
+        <label for="val-email">Enter Email/ID to Validate</label>
+        <input type="text" id="val-email" placeholder="e.g. user@example.com">
+        <label for="val-code">Enter Verification Code</label>
+        <input type="text" id="val-code" placeholder="Enter 6-digit code">
+        <button onclick="validateCode()">Validate Code</button>
+        <div id="val-result" class="result"></div>
+    </div>
+</div>
+
+<script>
+    async function generateCode() {
+        const userId = document.getElementById('gen-email').value;
+        const resultDiv = document.getElementById('gen-result');
+        const codeDisplay = document.getElementById('code-display');
+
+        resultDiv.className = 'result'; // Reset
+        resultDiv.style.display = ''; // Remove inline style to let CSS take over
+        codeDisplay.innerText = '';
+
+        if (!userId) {
+            resultDiv.innerText = "Please enter a user ID.";
+            resultDiv.classList.add('error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                codeDisplay.innerText = data.code;
+                resultDiv.innerText = "Code generated successfully!";
+                resultDiv.classList.add('success');
+
+                // Pre-fill validation email
+                document.getElementById('val-email').value = userId;
+            } else {
+                resultDiv.innerText = data.error || "Error generating code";
+                resultDiv.classList.add('error');
+            }
+        } catch (error) {
+            resultDiv.innerText = "Network error";
+            resultDiv.classList.add('error');
+        }
+    }
+
+    async function validateCode() {
+        const userId = document.getElementById('val-email').value;
+        const code = document.getElementById('val-code').value;
+        const resultDiv = document.getElementById('val-result');
+
+        resultDiv.className = 'result'; // Reset
+        resultDiv.style.display = ''; // Remove inline style to let CSS take over
+
+        if (!userId || !code) {
+            resultDiv.innerText = "Please enter both User ID and Code.";
+            resultDiv.classList.add('error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, code: code })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                if (data.valid) {
+                    resultDiv.innerText = "Verification Successful!";
+                    resultDiv.classList.add('success');
+                } else {
+                    resultDiv.innerText = "Invalid Code. Please try again.";
+                    resultDiv.classList.add('error');
+                }
+            } else {
+                resultDiv.innerText = data.error || "Error validating code";
+                resultDiv.classList.add('error');
+            }
+        } catch (error) {
+            resultDiv.innerText = "Network error";
+            resultDiv.classList.add('error');
+        }
+    }
+</script>
+
+</body>
+</html>
